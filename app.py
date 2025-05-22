@@ -43,8 +43,21 @@ class BuyStock(db.Model):
     product_name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255), nullable=False)
     price = db.Column(db.Float, nullable=False)
+    image_data = db.Column(db.LargeBinary, nullable=True)  # Optional image storage
+    image_mimetype = db.Column(db.String(50))
     quantity = db.Column(db.Integer, nullable=False)
     datetime = db.Column(db.DateTime, default=datetime.utcnow)
+
+class RecordSk(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(255), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    image_data = db.Column(db.LargeBinary, nullable=True)
+    image_mimetype = db.Column(db.String(50))
+    quantity = db.Column(db.Integer, nullable=False)
+    datetime = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(10), default='Pending')  # Accept / Reject / Pending
 
 with app.app_context():
     db.create_all()
@@ -79,8 +92,51 @@ def dashboard():
 
 @app.route('/buy-stock')
 def buy_stock():
-    BuyStock = BuyStock.query.all()
-    return render_template('buy_stock.html', BuyStock = BuyStock)
+    stock_items = BuyStock.query.order_by(BuyStock.datetime.desc()).all()
+    message = session.pop('message', None)  # Get and remove message
+    return render_template('buy_stock.html', stock_items=stock_items,message=message)
+
+@app.route('/buystock-image/<int:stock_id>')
+def buystock_image(stock_id):
+    stock_item = BuyStock.query.get_or_404(stock_id)
+    if stock_item.image_data:
+        return Response(stock_item.image_data, mimetype=stock_item.image_mimetype)
+    return '', 404
+
+@app.route('/accept-stock/<int:stock_id>', methods=['GET'])
+def accept_stock(stock_id):
+    stock_item = BuyStock.query.get_or_404(stock_id)
+    new_record = RecordSk(
+        product_name=stock_item.product_name,
+        description=stock_item.description,
+        price=stock_item.price,
+        image_data=stock_item.image_data,
+        image_mimetype=stock_item.image_mimetype,
+        quantity=stock_item.quantity,
+        datetime=stock_item.datetime,
+        status='Accept'
+    )
+    db.session.add(new_record)
+    db.session.commit()
+    return redirect(url_for('buy_stock'))
+
+@app.route('/reject-stock/<int:stock_id>', methods=['GET'])
+def reject_stock(stock_id):
+    stock_item = BuyStock.query.get_or_404(stock_id)
+    new_record = RecordSk(
+        product_name=stock_item.product_name,
+        description=stock_item.description,
+        price=stock_item.price,
+        image_data=stock_item.image_data,
+        image_mimetype=stock_item.image_mimetype,
+        quantity=stock_item.quantity,
+        datetime=stock_item.datetime,
+        status='Reject'
+    )
+    db.session.add(new_record)
+    db.session.commit()
+    return redirect(url_for('buy_stock'))
+
 
 @app.route('/logout')
 def logout():

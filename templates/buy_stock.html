@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Buy Stock Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-top: 20px;
+        }
+        table {
+            width: 95%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 14px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        img {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+            display: block;
+        }
+        .no-image {
+            color: #888;
+            text-align: center;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        .btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-accept {
+            background-color: #28a745;
+        }
+        .btn-reject {
+            background-color: #dc3545;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Buy Stock Records</h1>
+
+
+    {% if stock_items %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Product Name</th>
+                    <th>Description</th>
+                    <th>Price (RM)</th>
+                    <th>Quantity</th>
+                    <th>Date & Time</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in stock_items %}
+                <tr>
+                    <td>
+                        {% if item.image_data %}
+                            <img src="{{ url_for('buystock_image', stock_id=item.id) }}" alt="Product Image">
+                        {% else %}
+                            <div class="no-image">No image</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.product_name }}</td>
+                    <td>{{ item.description }}</td>
+                    <td>RM{{ '%.2f'|format(item.price) }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.datetime.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
+                    <!-- Modify just this part inside your HTML -->
+                    <div class="action-buttons">
+                        <button class="btn btn-accept" onclick="handleAction(event, '{{ url_for('accept_stock', stock_id=item.id) }}', 'Stock rejected and recorded.')">Accept</button>
+                        <button class="btn btn-reject" onclick="handleAction(event, '{{ url_for('reject_stock', stock_id=item.id) }}', 'Stock rejected and recorded.')">Reject</button>
+                    </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="text-align:center; color: #888;">No stock items available.</p>
+    {% endif %}
+
+
+    <!-- Flash message as alert AFTER render -->
+    <script>
+        window.onload = function () {
+            {% with messages = get_flashed_messages(category_filter=["stock"]) %}
+                {% if messages %}
+                    alert("{{ messages[0] }}");
+                {% endif %}
+            {% endwith %}
+        };
+
+        function handleAction(event, url, message) {
+            event.preventDefault();  // Stop form submission
+            alert(message);          // Show confirmation message
+
+            // Delay navigation
+            setTimeout(function () {
+                window.location.href = url;
+            }, 1000); // Wait 1 second before redirect
+        }
+    </script>
+
+</body>
+</html>
