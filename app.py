@@ -97,18 +97,10 @@ class PurchasedProduct(db.Model):
     name = db.Column(db.String(100), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(50), nullable=False, default="Pending")
-    username = db.Column(db.String(150), nullable=False)  # Add this line
+    username = db.Column(db.String(150), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('cust_user.id'), nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)  # add NEW time date
     sale_product_id = db.Column(db.Integer, db.ForeignKey('sale_product.id'), nullable=False)  # ✅ NEW
-
-class GiftBooking(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    gift_name = db.Column(db.String(100), nullable=False)  # Added gift name 
-    image_data = db.Column(db.LargeBinary, nullable=True)
-    image_mimetype = db.Column(db.String(50))
-    description = db.Column(db.String(255), nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    amount = db.Column(db.Integer, nullable=False)
 
 class Booked(db.Model):
     id = db.Column(db.Integer, primary_key=True)
