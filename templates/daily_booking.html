@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Booking Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f8fc;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+        form {
+            text-align: center;
+            margin-bottom: 30px;
+            background-color: #fff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 123, 255, 0.1);
+            display: inline-block;
+        }
+        label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        input[type="date"] {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 900px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Daily Booking for {{ gift }}</h2>
+
+    <form method="get" action="{{ url_for('daily_booking') }}">
+        <input type="hidden" name="gift" value="{{ gift }}">
+        <label for="start_date">Start Date:</label>
+        <input type="date" name="start_date" id="start_date" value="{{ start_date }}">
+        <label for="end_date">End Date:</label>
+        <input type="date" name="end_date" id="end_date" value="{{ end_date }}">
+        <button type="submit">Apply</button>
+    </form>
+
+    <canvas id="lineChart" width="800" height="400"></canvas>
+
+    <script>
+        const ctx = document.getElementById('lineChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ dates | tojson }},
+                datasets: [{
+                    label: 'Quantity Booked',
+                    data: {{ quantities | tojson }},
+                    fill: false,
+                    borderColor: '#007bff',
+                    backgroundColor: '#007bff',
+                    tension: 0.3,
+                    pointBackgroundColor: '#007bff',
+                    pointBorderColor: '#fff',
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Date', color: '#007bff' },
+                        ticks: { color: '#333' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Quantity', color: '#007bff' },
+                        ticks: { color: '#333' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#007bff' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

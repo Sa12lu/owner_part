@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventory Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .button-group button {
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align:center;">Inventory Report</h1>
+
+    <div class="button-group">
+        <button onclick="window.location.href='{{ url_for('report') }}'">Back to Stock Report</button>
+        <!-- Replace button's onclick -->
+        <button onclick="downloadPDFWithChart()">Download Inventory Report (PDF)</button>
+    </div>
+
+    <!-- Chart -->
+    <canvas id="inventoryChart" width="600" height="400" style="display: block; margin: 0 auto;"></canvas>
+
+<script>
+    const labels = {{ products | map(attribute='name') | list | tojson }};
+    const data = {{ products | map(attribute='quantity') | list | tojson }};
+
+    function getRandomColor(index) {
+        const colors = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+            '#9966FF', '#FF9F40', '#E7E9ED', '#00A651',
+            '#C2185B', '#7E57C2', '#FDD835', '#43A047'
+        ];
+        return colors[index % colors.length];
+    }
+
+    const backgroundColors = labels.map((_, i) => getRandomColor(i));
+    const borderColors = backgroundColors;
+
+    const ctx = document.getElementById('inventoryChart').getContext('2d');
+    const inventoryChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Quantity',
+                data: data,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Quantity' }
+                },
+                x: {
+                    title: { display: true, text: 'Product' }
+                }
+            }
+        }
+    });
+
+function downloadPDFWithChart() {
+    const canvas = document.getElementById('inventoryChart');
+
+    // Wait 500ms to ensure chart is rendered
+    setTimeout(() => {
+        const imageData = canvas.toDataURL('image/png'); // base64
+
+        fetch('{{ url_for("download_inventory_pdf") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chart: imageData })
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'inventory_report.pdf';
+            a.click();
+        })
+        .catch(error => {
+            console.error("PDF download failed:", error);
+        });
+    }, 500);
+}
+
+    // 🚫 REMOVE THIS EXTRA fetch — it's wrong and uses an undefined variable!
+    // fetch('/inventory/pdf', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ chart: chartBase64URL }) // ❌ undefined
+    // });
+</script>
+
+
+    <!-- Combined Summary -->
+    <div style="text-align:center; margin-top:40px;">
+        <h3>Inventory Report Summary</h3>
+
+        {% set total_quantity = products | map(attribute='quantity') | sum %}
+        {% set avg_quantity = (total_quantity / products|length) | round(2) %}
+        {% set max_product = products | max(attribute='quantity') %}
+        {% set min_product = products | min(attribute='quantity') %}
+
+        <ul style="list-style:none; padding:0; font-size: 18px;">
+            <li><strong>Total Products:</strong> {{ products|length }}</li>
+            <li><strong>Total Quantity in Stock:</strong> {{ total_quantity }}</li>
+            <li><strong>Average Stock per Product:</strong> {{ avg_quantity }}</li>
+            <li><strong>Most Stocked Product:</strong> {{ max_product.name }} ({{ max_product.quantity }})</li>
+            <li><strong>Least Stocked Product:</strong> {{ min_product.name }} ({{ min_product.quantity }})</li>
+            <li><strong>Detailed Inventory:</strong>
+                <ul style="list-style:none; padding:0; margin-top: 10px;">
+                    {% for product in products %}
+                        <li>{{ loop.index }}. {{ product.name }} — {{ product.quantity }} in stock</li>
+                    {% endfor %}
+                </ul>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>

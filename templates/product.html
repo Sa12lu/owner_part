@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Product Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .button-group button {
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 700px;
+        }
+        .summary {
+            margin: 40px auto;
+            max-width: 700px;
+            font-size: 16px;
+        }
+        .summary h3 {
+            text-align: center;
+        }
+        .summary ul {
+            list-style: none;
+            padding: 0;
+        }
+        .summary ul li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Product Report Chart</h1>
+
+    <div class="button-group">
+        <button onclick="window.location.href='{{ url_for('report') }}'">Back to Inventory</button>
+        <button id="downloadBtn" onclick="downloadPDF()" disabled>Download Report (PDF)</button>
+    </div>
+
+    <div id="reportContent">
+        <canvas id="stockChart" width="600" height="400"></canvas>
+
+        <div class="summary">
+            <h3>Summary</h3>
+            <ul>
+                <li><strong>Total Products:</strong> {{ labels | length }}</li>
+                <li><strong>Total Quantity:</strong> {{ quantities | sum }}</li>
+                <li><strong>Average Quantity:</strong> {{ (quantities | sum) / (labels | length) | round(2) }}</li>
+                <li><strong>Most Stocked Product:</strong> {{ max_product_label }} ({{ max_qty }})</li>
+                <li><strong>Least Stocked Product:</strong> {{ min_product_label }} ({{ min_qty }})</li>
+            </ul>
+            <h4>Product-wise Quantities</h4>
+            <ul>
+                {% for label, qty in product_data %}
+                    <li><strong>{{ label }}:</strong> {{ qty }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div> <!-- ✅ properly closed reportContent -->
+
+    <script>
+
+ let stockChart;
+
+    // Data from Flask template
+    const labels = {{ labels | tojson }};
+    const quantities = {{ quantities | tojson }};
+
+    // Generate distinct colors
+    const colors = labels.map((_, i) => `hsl(${(i * 360 / labels.length)}, 70%, 60%)`);
+
+    const ctx = document.getElementById('stockChart').getContext('2d');
+    stockChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Quantity Purchased',
+                data: quantities,
+                backgroundColor: colors,
+                borderColor: colors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            animation: {
+                onComplete: () => {
+                    document.getElementById('downloadBtn').disabled = false;
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const productName = stockChart.data.labels[index];
+                    window.location.href = `/daily-sale?product=${encodeURIComponent(productName)}`;
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Quantity' }
+                },
+                x: {
+                    title: { display: true, text: 'Product' }
+                }
+            }
+        }
+    });
+
+    // Inject color legend below the chart
+    const legendContainer = document.createElement('div');
+    legendContainer.style.maxWidth = '700px';
+    legendContainer.style.margin = '20px auto';
+    legendContainer.innerHTML = '<h4 style="text-align:center;">Color code</h4>' +
+        labels.map((label, index) =>
+            `<div style="display:flex; align-items:center; margin:4px;">
+                <div style="width:20px; height:20px; background:${colors[index]}; margin-right:10px;"></div>
+                <span>${label}</span>
+            </div>`
+        ).join('');
+    document.getElementById('reportContent').appendChild(legendContainer);
+
+    //this is pdf part        
+    function downloadPDF() {
+        stockChart.options.animation = false;
+        stockChart.update();
+
+        setTimeout(() => {
+            const element = document.getElementById('reportContent');
+            html2canvas(element)
+                .then(canvas => {
+                    const imageData = canvas.toDataURL('image/png');
+                    fetch('/product/pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chart: imageData })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`Server error: ${text}`);
+                                });
+                            }
+                            return response.blob();
+                        })
+                        .then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                        a.download = 'product_report.pdf';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    })
+                    .catch(error => {
+                        alert("Failed to generate PDF: " + error.message);
+                        console.error("Download error:", error);
+                    });
+                })
+                .catch(error => {
+                    alert("Failed to render chart: " + error.message);
+                    console.error("html2canvas error:", error);
+                });
+        }, 500);
+    }
+    </script>
+</body>
+</html>
+
+

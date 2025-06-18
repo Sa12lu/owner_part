@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gift Booking Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .button-group button {
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .summary {
+            margin: 40px auto;
+            max-width: 700px;
+            font-size: 16px;
+        }
+        .summary h3, .summary h4 {
+            text-align: center;
+        }
+        .summary ul {
+            list-style: none;
+            padding: 0;
+        }
+        .summary ul li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align:center;">Gift Booking Report</h1>
+
+<div class="button-group">
+    <button onclick="window.location.href='{{ url_for('report') }}'">Back to Report Menu</button>
+    <button onclick="downloadPDF()">Download Gift Report (PDF)</button>
+</div>
+
+<div id="reportContent">
+    <canvas id="giftChart" width="600" height="400" style="display: block; margin: 0 auto;"></canvas>
+
+    <div class="summary">
+        <h3>Summary</h3>
+        <ul>
+            <li><strong>Total Products:</strong> {{ labels|length }}</li>
+            <li><strong>Total Quantity:</strong> {{ total_quantity }}</li>
+            <li><strong>Average Quantity:</strong> {{ avg_quantity }}</li>
+            <li><strong>Most Booked Gift:</strong> {{ max_gift }} ({{ max_quantity }})</li>
+            <li><strong>Least Booked Gift:</strong> {{ min_gift }} ({{ min_quantity }})</li>
+        </ul>
+        <h4>Gift-wise Quantities</h4>
+        <ul>
+            {% for gift, qty in zipped_data %}
+                <li><strong>{{ gift }}:</strong> {{ qty }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="summary">
+        <h4>Color Code</h4>
+        <div id="color-code-list"></div>
+    </div>
+</div>
+
+<script>
+    const labels = {{ labels | tojson }};
+    const data = {{ quantities | tojson }};
+
+    function getRandomColor(index) {
+        const colors = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+            '#9966FF', '#FF9F40', '#E7E9ED', '#00A651',
+            '#C2185B', '#7E57C2', '#FDD835', '#43A047'
+        ];
+        return colors[index % colors.length];
+    }
+
+    const backgroundColors = labels.map((_, i) => getRandomColor(i));
+    const borderColors = backgroundColors;
+
+    const ctx = document.getElementById('giftChart').getContext('2d');
+    const giftChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Booked Quantity',
+                data: data,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Quantity' }
+                },
+                x: {
+                    title: { display: true, text: 'Gift' }
+                }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const giftName = giftChart.data.labels[index];
+                    window.location.href = `/daily-booking?gift=${encodeURIComponent(giftName)}`;
+                }
+            }
+        }
+    });
+
+    function downloadPDF() {
+        giftChart.options.animation = false;
+        giftChart.update();
+
+        setTimeout(() => {
+            html2canvas(document.getElementById('reportContent')).then(canvas => {
+                const imageData = canvas.toDataURL('image/png');
+                fetch('/download_gift_pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chart: imageData })
+                })
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'gift_report.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                })
+                .catch(error => {
+                    alert("Failed to generate PDF: " + error.message);
+                    console.error("Download error:", error);
+                });
+            }).catch(error => {
+                alert("Failed to render chart: " + error.message);
+                console.error("html2canvas error:", error);
+            });
+        }, 500);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+        const colorListDiv = document.getElementById("color-code-list");
+        labels.forEach((label, i) => {
+            const color = backgroundColors[i];
+            const colorRow = document.createElement("div");
+            colorRow.style.display = "flex";
+            colorRow.style.alignItems = "center";
+            colorRow.style.margin = "5px 0";
+
+            const box = document.createElement("div");
+            box.style.width = "20px";
+            box.style.height = "20px";
+            box.style.backgroundColor = color;
+            box.style.marginRight = "10px";
+
+            const labelSpan = document.createElement("span");
+            labelSpan.innerText = label;
+
+            colorRow.appendChild(box);
+            colorRow.appendChild(labelSpan);
+            colorListDiv.appendChild(colorRow);
+        });
+    });
+</script>
+</body>
+</html>
+
+
